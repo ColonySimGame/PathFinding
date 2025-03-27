@@ -1,3 +1,5 @@
+using PathFindingGrid.Grid;
+
 namespace PathFindingGrid.PathFinding;
 
 public class Node : IComparable<Node>

@@ -1,4 +1,4 @@
-namespace PathFindingGrid;
+namespace PathFindingGrid.Grid;
 
 public readonly struct Point3D : IEquatable<Point3D>
 {

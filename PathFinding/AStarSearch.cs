@@ -1,4 +1,5 @@
 using System.Numerics;
+using PathFindingGrid.Grid;
 
 namespace PathFindingGrid.PathFinding;
 
@@ -7,8 +8,7 @@ public class AStarSearch
     private readonly int _width;
     private readonly int _height;
     private readonly int _depth;
-    private readonly Func<Point3D, bool> _isWalkable; // Function to check if a tile is walkable
-    private readonly Dictionary<Point3D, List<Teleporter>> _teleporters;
+    private readonly Map _map;
     private readonly float _defaultMoveCost;
     private readonly float _diagonalMoveCost;
     private readonly bool _allowDiagonal;
@@ -19,7 +19,7 @@ public class AStarSearch
     /// <param name="width">Map width (X dimension).</param>
     /// <param name="height">Map height (Y dimension).</param>
     /// <param name="depth">Map depth (Z dimension).</param>
-    /// <param name="isWalkable">A function delegate that takes a Point3D and returns true if it's walkable, false otherwise.</param>
+    /// <param name="map"></param>
     /// <param name="teleporters">A dictionary mapping teleporter entry points to their exit points and traversal cost.</param>
     /// <param name="defaultMoveCost">Cost for orthogonal movement (up, down, left, right, forward, back).</param>
     /// <param name="diagonalMoveCost">Cost for diagonal movement on the same Z-level. Ignored if allowDiagonal is false.</param>
@@ -28,8 +28,7 @@ public class AStarSearch
         int width,
         int height,
         int depth,
-        Func<Point3D, bool> isWalkable,
-        Dictionary<Point3D, List<Teleporter>>? teleporters = null,
+        Map map,
         float defaultMoveCost = 1.0f,
         float diagonalMoveCost = 1.414f, // Approx sqrt(2)
         bool allowDiagonal = true)
@@ -37,8 +36,7 @@ public class AStarSearch
         _width = width;
         _height = height;
         _depth = depth;
-        _isWalkable = isWalkable ?? throw new ArgumentNullException(nameof(isWalkable));
-        _teleporters = teleporters ?? new Dictionary<Point3D, List<Teleporter>>();
+        _map = map;
         _defaultMoveCost = defaultMoveCost;
         _diagonalMoveCost = diagonalMoveCost;
         _allowDiagonal = allowDiagonal;
@@ -53,8 +51,7 @@ public class AStarSearch
     public List<Point3D>? FindPath(Point3D startPoint, Point3D goalPoint)
     {
         // Basic validation
-        if (!IsWithinBounds(startPoint) || !_isWalkable(startPoint) ||
-            !IsWithinBounds(goalPoint) || !_isWalkable(goalPoint))
+        if (!IsWithinBounds(startPoint) || !IsWalkable(startPoint) || !IsWithinBounds(goalPoint) || !IsWalkable(goalPoint))
         {
             Console.WriteLine("Start or Goal point is invalid (out of bounds or unwalkable).");
             return null; // Invalid start or goal
@@ -78,7 +75,6 @@ public class AStarSearch
         openSet.Enqueue(startNode, startNode.FScore);
         nodeLookup[startPoint] = startNode;
         gScores[startPoint] = 0;
-
 
         while (openSet.Count > 0)
         {
@@ -155,17 +151,23 @@ public class AStarSearch
             for (var dy = -1; dy <= 1; dy++)
             {
                 // Skip the center point itself
-                if (dx == 0 && dy == 0) continue;
+                if (dx == 0 && dy == 0)
+                {
+                    continue;
+                }
 
                 // Skip diagonal if not allowed
-                if (!_allowDiagonal && Math.Abs(dx) + Math.Abs(dy) > 1) continue;
-
+                if (!_allowDiagonal && Math.Abs(dx) + Math.Abs(dy) > 1)
+                {
+                    continue;
+                }
+                
                 var neighbor = new Point3D(current.X + dx, current.Y + dy, current.Z);
 
                 // Check bounds and walkability
-                if (IsWithinBounds(neighbor) && _isWalkable(neighbor))
+                if (IsWithinBounds(neighbor) && IsWalkable(neighbor))
                 {
-                    var cost = (Math.Abs(dx) + Math.Abs(dy) > 1) ? _diagonalMoveCost : _defaultMoveCost;
+                    var cost = Math.Abs(dx) + Math.Abs(dy) > 1 ? _diagonalMoveCost : _defaultMoveCost;
                     yield return (neighbor, cost);
                 }
             }
@@ -173,7 +175,7 @@ public class AStarSearch
 
 
         // 2. Teleporter Moves
-        if (_teleporters.TryGetValue(current, out List<Teleporter>? teleportInfo))
+        if (_map.TeleportersByPoint.TryGetValue(current, out List<Teleporter>? teleportInfo))
         {
             foreach (var teleporter in teleportInfo)
             {
@@ -181,7 +183,7 @@ public class AStarSearch
                 var teleportCost = teleporter.Cost;
 
                 // Ensure the exit point is valid before yielding
-                if (IsWithinBounds(exitPoint) && _isWalkable(exitPoint))
+                if (IsWithinBounds(exitPoint) && IsWalkable(exitPoint))
                 {
                     yield return (exitPoint, teleportCost);
                 }
@@ -209,5 +211,15 @@ public class AStarSearch
         }
         path.Reverse(); // Reverse to get path from start to goal
         return path;
+    }
+    
+    private bool IsWalkable(Point3D p)
+    {
+        if (p.X < 0 || p.X >= _width || p.Y < 0 || p.Y >= _height || p.Z < 0 || p.Z >= _depth)
+        {
+            return false;
+        }
+        
+        return _map.Tiles[p.X, p.Y, p.Z].Walkable;
     }
 }

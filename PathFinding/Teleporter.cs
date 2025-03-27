@@ -1,3 +1,5 @@
+using PathFindingGrid.Grid;
+
 namespace PathFindingGrid.PathFinding;
 
 public struct Teleporter

@@ -1,4 +1,4 @@
-namespace PathFindingGrid;
+namespace PathFindingGrid.Grid;
 
 public class Tile
 {
