@@ -72,10 +72,17 @@ public abstract class Program
             Console.WriteLine("Path found:");
             Console.WriteLine(string.Join(" -> ", path));
             // Calculate path cost (optional)
-            float totalCost = 0;
-            for(var i = 0; i < path.Count - 1; i++) {
-                totalCost += CalculateMoveCost(path[i], path[i+1], map.TeleportersByPoint);
+            double totalCost = 0;
+            startTime = DateTime.Now.Ticks;
+            for(var i = 0; i < path.Count - 1; i++)
+            {
+                var origin = path[i];
+                var target = path[i+1];
+                var tile = map.GetTile(target);
+                totalCost += AStarSearch.CalculateMoveCost(origin, target, map.TeleportersByPoint, tile);
             }
+            endTime = DateTime.Now.Ticks;
+            Console.WriteLine($"Time taken: {(endTime - startTime) / 10000} ms");
             Console.WriteLine($"Approximate Path Cost: {totalCost}"); // Note: This simple calc might slightly differ from A*'s internal G-score due to heuristic influence/tie-breaking.
         }
         else
@@ -83,35 +90,5 @@ public abstract class Program
             Console.WriteLine("Path could not be found.");
         }
     }
-
-     // Helper function for example cost calculation (mirrors neighbor logic)
-    private static float CalculateMoveCost(Point3D from, Point3D to, Dictionary<Point3D, List<Teleporter>> teleporters)
-    {
-        // Check teleporter first
-        if (teleporters.TryGetValue(from, out List<Teleporter>? teleportInfo))
-        {
-            foreach (var teleporter in from teleporter in teleportInfo let isTeleporter = teleporter.PointA == to || teleporter.PointB == to where isTeleporter select teleporter)
-            {
-                return teleporter.Cost;
-            }
-        }
-
-        // Assume standard movement cost otherwise (this is simplified)
-        var dx = Math.Abs(from.X - to.X);
-        var dy = Math.Abs(from.Y - to.Y);
-        var dz = Math.Abs(from.Z - to.Z);
-
-        if (dz > 0) {
-             // Need logic for Z-movement cost if implemented (e.g., stairs cost)
-             return float.PositiveInfinity; // Placeholder for undefined Z-move cost
-        }
-
-        if (dx <= 1 && dy <= 1) // Adjacent or diagonal on same plane
-        {
-            return (dx + dy > 1) ? 1.414f : 1.0f; // Diagonal vs Orthogonal
-        }
-
-        // This indicates a jump or non-standard move not covered by teleporter/adjacent
-        return float.MaxValue; // Or handle appropriately
-    }
+    
 }

@@ -5,12 +5,13 @@ namespace PathFindingGrid.PathFinding;
 
 public class AStarSearch
 {
+    private const float DefaultMoveCost = 1;
+    private const float DiagonalMoveCost = 1.414f;
+    
     private readonly int _width;
     private readonly int _height;
     private readonly int _depth;
     private readonly Map _map;
-    private readonly float _defaultMoveCost;
-    private readonly float _diagonalMoveCost;
     private readonly bool _allowDiagonal;
 
     /// <summary>
@@ -20,25 +21,18 @@ public class AStarSearch
     /// <param name="height">Map height (Y dimension).</param>
     /// <param name="depth">Map depth (Z dimension).</param>
     /// <param name="map"></param>
-    /// <param name="teleporters">A dictionary mapping teleporter entry points to their exit points and traversal cost.</param>
-    /// <param name="defaultMoveCost">Cost for orthogonal movement (up, down, left, right, forward, back).</param>
-    /// <param name="diagonalMoveCost">Cost for diagonal movement on the same Z-level. Ignored if allowDiagonal is false.</param>
     /// <param name="allowDiagonal">Whether diagonal movement on the same Z-level is permitted.</param>
     public AStarSearch(
         int width,
         int height,
         int depth,
         Map map,
-        float defaultMoveCost = 1.0f,
-        float diagonalMoveCost = 1.414f, // Approx sqrt(2)
         bool allowDiagonal = true)
     {
         _width = width;
         _height = height;
         _depth = depth;
         _map = map;
-        _defaultMoveCost = defaultMoveCost;
-        _diagonalMoveCost = diagonalMoveCost;
         _allowDiagonal = allowDiagonal;
     }
 
@@ -63,11 +57,11 @@ public class AStarSearch
         }
 
         // Use PriorityQueue for efficient retrieval of the node with the lowest FScore
-        var openSet = new PriorityQueue<Node, float>();
+        var openSet = new PriorityQueue<Node, double>();
         // Keep track of nodes already evaluated or in the open set to avoid duplicates/reprocessing
         var nodeLookup = new Dictionary<Point3D, Node>();
         // Store the GScore for quick lookup and update
-        var gScores = new Dictionary<Point3D, float>();
+        var gScores = new Dictionary<Point3D, double>();
 
         // Initialize starting node
         var startHScore = Heuristic(startPoint, goalPoint);
@@ -143,7 +137,7 @@ public class AStarSearch
     }
 
     // --- Helper: Get Neighbors (including teleporters) ---
-    private IEnumerable<(Point3D Position, float Cost)> GetNeighbors(Point3D current)
+    private IEnumerable<(Point3D Position, double Cost)> GetNeighbors(Point3D current)
     {
         // 1. Standard Moves (Orthogonal and Diagonal on the same Z-level)
         for (var dx = -1; dx <= 1; dx++)
@@ -167,8 +161,9 @@ public class AStarSearch
                 // Check bounds and walkability
                 if (IsWithinBounds(neighbor) && IsWalkable(neighbor))
                 {
-                    var cost = Math.Abs(dx) + Math.Abs(dy) > 1 ? _diagonalMoveCost : _defaultMoveCost;
-                    yield return (neighbor, cost);
+                    // double cost = Math.Abs(dx) + Math.Abs(dy) > 1 ? _diagonalMoveCost : _defaultMoveCost;
+                    // cost /= _map.Tiles[neighbor.X, neighbor.Y, neighbor.Z].SpeedModifier; // Adjust cost based on tile movement cost
+                    yield return (neighbor, Cost(dx, dy, tileSpeedModifier: _map.Tiles[neighbor.X, neighbor.Y, neighbor.Z].SpeedModifier));
                 }
             }
         }
@@ -221,5 +216,45 @@ public class AStarSearch
         }
         
         return _map.Tiles[p.X, p.Y, p.Z].Walkable;
+    }
+
+    public static double CalculateMoveCost(Point3D from, Point3D to, Dictionary<Point3D, List<Teleporter>> teleporters, Tile tile)
+    {
+        // Check teleporter first
+        if (teleporters.TryGetValue(from, out List<Teleporter>? teleportInfo))
+        {
+            foreach (var teleporter in from teleporter in teleportInfo let isTeleporter = teleporter.PointA == to || teleporter.PointB == to where isTeleporter select teleporter)
+            {
+                return teleporter.Cost;
+            }
+        }
+
+        // Assume standard movement cost otherwise (this is simplified)
+        var dx = Math.Abs(from.X - to.X);
+        var dy = Math.Abs(from.Y - to.Y);
+        var dz = Math.Abs(from.Z - to.Z);
+
+        if (dz > 0) {
+            // Need logic for Z-movement cost if implemented (e.g., stairs cost)
+            return float.PositiveInfinity; // Placeholder for undefined Z-move cost
+        }
+
+        if (dx <= 1 && dy <= 1) // Adjacent or diagonal on same plane
+        {
+            return Cost(dx, dy, tile.SpeedModifier, 1);
+        }
+
+        // This indicates a jump or non-standard move not covered by teleporter/adjacent
+        return float.MaxValue; // Or handle appropriately
+    }
+    
+    private static double Cost(int dx, int dy, double tileSpeedModifier = 1, double characterModifier = 1)
+    {
+        double cost = dx + dy > 1 ? DiagonalMoveCost : DefaultMoveCost; // Diagonal vs Orthogonal
+        // Adjust cost based on tile movement cost (if applicable)
+        cost /= tileSpeedModifier;
+        // cost *= 60;
+        cost /= characterModifier;
+        return cost;
     }
 }

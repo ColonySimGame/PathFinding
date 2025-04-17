@@ -24,4 +24,15 @@ public class Map
         TeleportersByPoint.TryAdd(teleporter.PointB, []);
         TeleportersByPoint[teleporter.PointB].Add(teleporter);
     }
+
+    public Tile GetTile(Point3D point3D)
+    {
+        if (point3D.X < 0 || point3D.Y < 0 || point3D.Z < 0 ||
+            point3D.X >= Tiles.GetLength(0) || point3D.Y >= Tiles.GetLength(1) || point3D.Z >= Tiles.GetLength(2))
+        {
+            throw new ArgumentOutOfRangeException(nameof(point3D), "Point is out of bounds");
+        }
+
+        return Tiles[point3D.X, point3D.Y, point3D.Z];
+    }
 }

@@ -5,12 +5,12 @@ namespace PathFindingGrid.PathFinding;
 public class Node : IComparable<Node>
 {
     public Point3D Position { get; }
-    public float GScore { get; set; } // Cost from start to this node
-    public float HScore { get; set; } // Heuristic cost from this node to goal
-    public float FScore => GScore + HScore; // Total estimated cost
+    public double GScore { get; set; } // Cost from start to this node
+    public double HScore { get; set; } // Heuristic cost from this node to goal
+    public double FScore => GScore + HScore; // Total estimated cost
     public Node? Parent { get; set; }
 
-    public Node(Point3D position, float gScore = float.MaxValue, float hScore = float.MaxValue, Node? parent = null)
+    public Node(Point3D position, double gScore = double.MaxValue, double hScore = double.MaxValue, Node? parent = null)
     {
         Position = position;
         GScore = gScore;
